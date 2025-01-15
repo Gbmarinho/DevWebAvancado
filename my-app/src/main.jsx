@@ -15,7 +15,7 @@ root.render(
     <Routes>
       <Route path="/" element={<App />} />
       <Route path="/midia/:idBiblioteca" element={<MediaPage />} />
-      <Route path="/ProfilePage/:id" element={<ProfilePage />} />
+      <Route path="/ProfilePage/:userId" element={<ProfilePage />} />
     </Routes>
   </BrowserRouter>
 );

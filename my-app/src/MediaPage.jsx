@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { getFirestore, collection, getDocs } from "firebase/firestore";
+import { getFirestore, collection, getDocs, query, where } from "firebase/firestore";
 import app from "./firebaseConfig";
 import './index.css';
+import { useNavigate } from "react-router-dom";
 
 
 function MediaPage() {
@@ -13,6 +14,43 @@ function MediaPage() {
   const [nomeBiblioteca, setNomeBiblioteca] = useState("Biblioteca");
   const [selectedBookId, setSelectedBookId] = useState(null); // ID do livro selecionado
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [cpf, setCpf] = useState("");
+  const [senha, setSenha] = useState("");
+  const [userId, setUserId] = useState(null);
+  const navigate = useNavigate();
+
+
+  useEffect(()  => {
+    const userId = localStorage.getItem("userId");
+    setUserId(userId);
+  }, []);
+
+  const handleLogin = async () => {
+      try {
+        const db = getFirestore();
+        const pessoasRef = collection(db, "Pessoa");
+        const q = query(pessoasRef, where("cpf", "==", cpf), where("senha", "==", senha));
+        const querySnapshot = await getDocs(q);
+  
+        if (querySnapshot.empty) {
+          console.log("tesss")
+        } else {
+          const userDoc = querySnapshot.docs[0];
+          const id = userDoc.id;
+          setUserId(id);
+          localStorage.setItem("userId", id); // Salva o ID no localStorage
+          setIsModalOpen(false); // Fecha o modal
+        }
+      } catch (err) {
+        console.error("Erro ao autenticar:", err);
+      }
+    };
+
+    const handleLogout = () => {
+      localStorage.removeItem("userId");
+      setUserId(null); // Limpa o estado local, se necessário
+    };
+
 
   useEffect(() => {
     const fetchMidias = async () => {
@@ -87,10 +125,131 @@ function MediaPage() {
   return (
     <div style={{ backgroundColor: "#f4f4f4", minHeight: "100vh" }}>
       <header style={{ padding: "1rem", background: "#282c34", color: "white", display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
-        <h1>{nomeBiblioteca}</h1>
-        <button style={{ padding: "0.5rem 1rem", background: "#61dafb", border: "none", borderRadius: "5px", cursor: "pointer" }}>
+        <h1>Bibliotecas</h1>
+        {userId ? (
+          <div style={{ display: "flex", gap: "1rem" }}>
+
+            <button
+              style={{
+                padding: "0.5rem 1rem",
+                background: "#61dafb",
+                border: "none",
+                borderRadius: "5px",
+                cursor: "pointer",
+              }}
+              onClick={() => navigate(`/ProfilePage/${userId}`)}
+            >
+              Perfil
+            </button>
+
+            <button
+              style={{
+                padding: "0.5rem 1rem",
+                background: "red",
+                border: "none",
+                borderRadius: "5px",
+                cursor: "pointer",
+              }}
+              onClick={() => handleLogout()}
+            >
+              Logout
+            </button>
+
+          </div>
+        ) : 
+
+          <button
+          style={{
+            padding: "0.5rem 1rem",
+            background: "#61dafb",
+            border: "none",
+            borderRadius: "5px",
+            cursor: "pointer",
+          }}
+          onClick={() => setIsModalOpen(true)}
+        >
           Login
         </button>
+        }
+
+      {isModalOpen && (
+        <div
+          style={{
+            position: "fixed",
+            top: "0",
+            left: "0",
+            width: "100vw",
+            height: "100vh",
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <div
+            style={{
+              background: "white",
+              borderRadius: "8px",
+              padding: "2rem",
+              width: "400px",
+              position: "relative",
+            }}
+          >
+            <button
+              onClick={() => setIsModalOpen(false)}
+              style={{
+                position: "absolute",
+                top: "10px",
+                right: "10px",
+                background: "none",
+                border: "none",
+                fontSize: "1.5rem",
+                cursor: "pointer",
+              }}
+            >
+              &times;
+            </button>
+            <div style={{ marginBottom: "1rem", textAlign: "center" }}>
+              <h2 style={{ color:"black",  }}>Login</h2>
+            </div>
+            <div style={{ marginBottom: "1rem" }}>
+              <label>
+              <p style={{ color:"black" }}>Cpf</p>
+                <input
+                  type="text"
+                  value={cpf}
+                  onChange={(e) => setCpf(e.target.value)}
+                  style={{ width: "100%", padding: "0.5rem", marginTop: "0.5rem" }}
+                />
+              </label>
+            </div>
+            <div style={{ marginBottom: "1rem" }}>
+              <label>
+                <p style={{ color:"black" }}>Senha</p>
+                <input
+                  type="password"
+                  value={senha}
+                  onChange={(e) => setSenha(e.target.value)}
+                  style={{ width: "100%", padding: "0.5rem", marginTop: "0.5rem" }}
+                />
+              </label>
+            </div>
+            <button
+              onClick={handleLogin}
+              style={{
+                padding: "0.5rem 1rem",
+                background: "#28a745",
+                color: "white",
+                border: "none",
+                borderRadius: "5px",
+                cursor: "pointer",
+              }}
+            >
+              Entrar
+            </button>
+          </div>
+        </div>
+      )}
       </header>
 
 

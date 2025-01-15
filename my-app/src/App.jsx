@@ -52,6 +52,14 @@ function App() {
   const [error, setError] = useState("");
   const [userId, setUserId] = useState(null);
 
+  useEffect(()  => {
+    const userId = localStorage.getItem("userId");
+    if (userId) {
+      setUserId(userId);
+      console.log(userId);
+    }
+  }, []);
+
   const handleLogin = async () => {
     try {
       const db = getFirestore();
@@ -74,12 +82,18 @@ function App() {
     }
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem("userId");
+    setUserId(null); // Limpa o estado local, se necessário
+  };
+  
+
   return (
     <div style={{ display: "flex", justifyContent: "center", backgroundColor: "#f4f4f4", alignItems: "center", flexDirection: "column", width: "100%" }}>
       <header style={{ padding: "1rem", background: "#282c34", color: "white", display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
         <h1>Bibliotecas</h1>
         {userId ? (
-          <div>
+          <div style={{ display: "flex", gap: "1rem" }}>
 
             <button
               style={{
@@ -92,6 +106,19 @@ function App() {
               onClick={() => navigate(`/ProfilePage/${userId}`)}
             >
               Perfil
+            </button>
+
+            <button
+              style={{
+                padding: "0.5rem 1rem",
+                background: "red",
+                border: "none",
+                borderRadius: "5px",
+                cursor: "pointer",
+              }}
+              onClick={() => handleLogout()}
+            >
+              Logout
             </button>
 
           </div>

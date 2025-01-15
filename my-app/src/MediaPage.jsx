@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { getFirestore, collection, getDocs, query, where } from "firebase/firestore";
+import { getFirestore, collection, getDocs, query, where,updateDoc, addDoc, doc } from "firebase/firestore";
 import app from "./firebaseConfig";
 import './index.css';
 import { useNavigate } from "react-router-dom";
+import { format, set } from "date-fns";
+
 
 
 function MediaPage() {
@@ -14,16 +16,97 @@ function MediaPage() {
   const [nomeBiblioteca, setNomeBiblioteca] = useState("Biblioteca");
   const [selectedBookId, setSelectedBookId] = useState(null); // ID do livro selecionado
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isModalOpenLogin, setIsModalOpenLogin] = useState(false);
   const [cpf, setCpf] = useState("");
   const [senha, setSenha] = useState("");
   const [userId, setUserId] = useState(null);
   const navigate = useNavigate();
+  const [dataRetirada, setDataRetirada] = useState("");
+  const [cadastraOpen, setCadastraOpen] = useState(false);
+  const [nome, setNome] = useState("");
+  const [email, setEmail] = useState("");
+  const [dataNasc, setDataNasc] = useState("");
+  const [endereco, setEndereco] = useState("");
+  const [cpfCadastra, setCpfCadastra] = useState("");
+  const [senhaCadastra, setSenhaCadastra] = useState("");
+  const [titulo, setTitulo] = useState("");
+
+
+  const adicionar30Dias = (dataRetirada) => {
+    const [ano, mes, dia] = dataRetirada.split("-").map(Number);
+    const dataInicial = new Date(ano, mes - 1, dia); // Date usa meses de 0 a 11
+    const dataFinal = new Date(dataInicial);
+    dataFinal.setDate(dataInicial.getDate() + 30);
+    return format(dataFinal, "dd/MM/yyyy");
+  };
+  
+  const handleCriarEmprestimo = async () => {
+    try {
+      const db = getFirestore();
+  
+      // Calcular a data de devolução
+      const dataDevolucao = adicionar30Dias(dataRetirada);
+  
+      // Criar o empréstimo no Firestore
+      const emprestimoRef = await addDoc(collection(db, "Emprestimo"), {
+        id_biblioteca: idBiblioteca,
+        id_midia: selectedBookId,
+        id_pessoa: userId,
+        biblioteca:nomeBiblioteca,
+        titulo: titulo,
+        inicio: format(new Date(dataRetirada), "dd/MM/yyyy"),
+        termino: dataDevolucao,
+      });
+  
+      console.log("Empréstimo criado com sucesso, ID:", emprestimoRef.id);
+  
+      // Atualizar a mídia associada
+      const midiaRef = doc(db, "Midia", selectedBookId);
+      await updateDoc(midiaRef, {
+        idEmprestimo: emprestimoRef.id,
+        disponivel_para_emprestimo: false,
+      });
+  
+      alert("Empréstimo criado e mídia atualizada com sucesso!");
+      window.location.reload()
+    } catch (error) {
+      console.error("Erro ao criar empréstimo ou atualizar mídia:", error);
+    }
+  };
 
 
   useEffect(()  => {
     const userId = localStorage.getItem("userId");
-    setUserId(userId);
+    console.log(userId)
+    if(userId) setUserId(userId);
   }, []);
+  const handleAdmin = async () => {
+    try {
+      const db = getFirestore();
+
+      // Dados do formulário
+      const adminData = {
+        cpf: cpfCadastra,
+        senha: senhaCadastra,
+        nome,
+        email,
+        data_nasc: dataNasc,
+        endereço: endereco,
+      };
+
+      // Adiciona o novo administrador ao Firestore
+      const userDoc = await addDoc(collection(db, "Pessoa"), adminData);
+
+      const id = userDoc.id;
+          setUserId(id);
+          localStorage.setItem("userId", id); 
+      alert("Administrador cadastrado com sucesso!");
+      handleCloseModal(); // Fecha o modal
+    } catch (error) {
+      console.error("Erro ao cadastrar administrador:", error);
+      alert("Erro ao cadastrar administrador. Tente novamente.");
+    }
+  };
 
   const handleLogin = async () => {
       try {
@@ -39,7 +122,7 @@ function MediaPage() {
           const id = userDoc.id;
           setUserId(id);
           localStorage.setItem("userId", id); // Salva o ID no localStorage
-          setIsModalOpen(false); // Fecha o modal
+          setIsModalOpenLogin(false); // Fecha o modal
         }
       } catch (err) {
         console.error("Erro ao autenticar:", err);
@@ -100,8 +183,6 @@ function MediaPage() {
         );
 
         setMidias(midiasComDetalhes);
-
-        console.log(midiasComDetalhes);
       } catch (error) {
         console.error("Erro ao buscar mídias:", error);
       } finally {
@@ -112,14 +193,17 @@ function MediaPage() {
     fetchMidias();
   }, [idBiblioteca]);
 
-  const handleOpenModal = (bookId) => {
+  const handleOpenModal = (bookId, titulo) => {
     setSelectedBookId(bookId);
+    setTitulo(titulo);
     setIsModalOpen(true);
   };
 
   const handleCloseModal = () => {
     setSelectedBookId(null);
     setIsModalOpen(false);
+    setIsModalOpenLogin(false);
+    setCadastraOpen(false);
   };
 
   return (
@@ -166,13 +250,13 @@ function MediaPage() {
             borderRadius: "5px",
             cursor: "pointer",
           }}
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => setIsModalOpenLogin(true)}
         >
           Login
         </button>
         }
 
-      {isModalOpen && (
+      {isModalOpenLogin && (
         <div
           style={{
             position: "fixed",
@@ -196,7 +280,7 @@ function MediaPage() {
             }}
           >
             <button
-              onClick={() => setIsModalOpen(false)}
+              onClick={() => setIsModalOpenLogin(false)}
               style={{
                 position: "absolute",
                 top: "10px",
@@ -247,6 +331,21 @@ function MediaPage() {
             >
               Entrar
             </button>
+            <button
+                  type="button"
+                  style={{
+                    marginTop: "1rem",
+                    padding: "0.5rem 1rem",
+                    background: "#007b7f",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "5px",
+                    cursor: "pointer",
+                  }}
+                  onClick={() => {setIsModalOpenLogin(false);setCadastraOpen(true)}}
+                >
+                  Cadastrar
+                </button>
           </div>
         </div>
       )}
@@ -389,7 +488,7 @@ function MediaPage() {
                   cursor: "pointer",
                   width: "100%",
                 }}
-                onClick={() => handleOpenModal(midia.id)}
+                onClick={() => handleOpenModal(midia.id, midia.titulo)}
               >
                 Solicitar Empréstimo
               </button>
@@ -397,7 +496,7 @@ function MediaPage() {
           ))}
         </ul>
       )}
-      {isModalOpen && (
+     {isModalOpen && (
         <div
           style={{
             position: "fixed",
@@ -411,73 +510,218 @@ function MediaPage() {
             alignItems: "center",
           }}
         >
-         <div
-        style={{
-          position: "fixed",
-          top: "50%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          background: "white",
-          borderRadius: "8px",
-          padding: "2rem",
-          width: "400px",
-          textAlign: "center",
-          boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-        }}
-      >
-        <button
-          onClick={handleCloseModal}
-          style={{
-            position: "absolute",
-            top: "10px",
-            right: "1rem",
-            background: "none",
-            border: "none",
-            fontSize: "24px",
-            color: "#888",
-            cursor: "pointer",
-          }}
-        >
-          <svg width="14" height="13" viewBox="0 0 14 13" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path d="M12.9462 0.500977L6.97309 6.47407M6.97309 6.47407L1 12.4472M6.97309 6.47407L13 12.501M6.97309 6.47407L1.05379 0.554768" stroke="#5F6872" strokeLinecap="round"/>
-</svg>
-
-        </button>
-        <h2>Formulário de Empréstimo</h2>
-        {/* <p>ID do Livro: {selectedBookId}</p> */}
-        <form>
-          <label style={{ display: "block", marginBottom: "1rem" }}>
-            Nome:
-            <input type="text" placeholder="Digite o seu Nome" style={{ width: "100%", padding: "0.5rem", marginTop: "0.5rem" }} />
-          </label>
-          <label style={{ display: "block", marginBottom: "1rem" }}>
-            Cpf:
-            <input type="text" placeholder="Digite o seu CPF" style={{ width: "100%", padding: "0.5rem", marginTop: "0.5rem" }} />
-          </label>
-          <label style={{ display: "block", marginBottom: "1rem" }}>
-            Data de Retirada:
-            <input type="date" style={{ width: "100%", padding: "0.5rem", marginTop: "0.5rem" }} />
-          </label>
-          <p>Obs: O tempo de emprestimo é de 30 dias apos a data de retirada.</p>
-          <button
-            type="button"
+          <div
             style={{
-              marginTop: "1rem",
-              padding: "0.5rem 1rem",
-              background: "#28a745",
-              color: "white",
-              border: "none",
-              borderRadius: "5px",
-              cursor: "pointer",
+              position: "fixed",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              background: "white",
+              borderRadius: "8px",
+              padding: "2rem",
+              width: "400px",
+              textAlign: "center",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
             }}
-            onClick={handleCloseModal}
           >
-            Confirmar
-          </button>
-        </form>
-      </div>
+            <button
+              onClick={handleCloseModal}
+              style={{
+                position: "absolute",
+                top: "10px",
+                right: "1rem",
+                background: "none",
+                border: "none",
+                fontSize: "24px",
+                color: "#888",
+                cursor: "pointer",
+              }}
+            >
+              <svg width="14" height="13" viewBox="0 0 14 13" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12.9462 0.500977L6.97309 6.47407M6.97309 6.47407L1 12.4472M6.97309 6.47407L13 12.501M6.97309 6.47407L1.05379 0.554768" stroke="#5F6872" strokeLinecap="round" />
+              </svg>
+            </button>
+
+            {userId ? (
+              <>
+                <h2>Formulário de Empréstimo</h2>
+                <form>
+                  <label style={{ display: "block", marginBottom: "1rem" }}>
+                    Data de Retirada:
+                    <input
+                      type="date"
+                      value={dataRetirada}
+                      onChange={(e) => setDataRetirada(e.target.value)}
+                      style={{ width: "100%", padding: "0.5rem", marginTop: "0.5rem" }}
+                    />
+                  </label>
+                  <p>Obs: O tempo de empréstimo é de 30 dias após a data de retirada.</p>
+                  <button
+                    type="button"
+                    style={{
+                      marginTop: "1rem",
+                      padding: "0.5rem 1rem",
+                      background: "#28a745",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "5px",
+                      cursor: "pointer",
+                    }}
+                    onClick={() => {
+                      handleCriarEmprestimo();
+                    }}
+                  >
+                    Confirmar
+                  </button>
+                </form>
+              </>
+            ) : (
+              <>
+                <h2>Você tem que estar logado para fazer empréstimo</h2>
+                <button
+                  type="button"
+                  style={{
+                    marginTop: "1rem",
+                    padding: "0.5rem 1rem",
+                    background: "#007bff",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "5px",
+                    cursor: "pointer",
+                  }}
+                  onClick={() => {setIsModalOpen(false);setIsModalOpenLogin(true)}}
+                >
+                  Fazer Login
+                </button>
+              </>
+            )}
+
+          </div>
         </div>
       )}
+      {cadastraOpen && (
+<div
+style={{
+position: "fixed",
+top: "0",
+left: "0",
+width: "100%",
+height: "100%",
+background: "rgba(0, 0, 0, 0.5)",
+display: "flex",
+justifyContent: "center",
+alignItems: "center",
+}}
+>
+<div
+style={{
+background: "white",
+borderRadius: "8px",
+padding: "2rem",
+width: "400px",
+position: "relative",
+}}
+>
+<button
+onClick={handleCloseModal}
+style={{
+ position: "absolute",
+ top: "10px",
+ right: "10px",
+ background: "none",
+ border: "none",
+ fontSize: "1.5rem",
+ cursor: "pointer",
+}}
+>
+&times;
+</button>
+<div style={{ marginBottom: "1rem", textAlign: "center" }}>
+<h2 style={{ color: "black" }}>Cadastrar</h2>
+</div>
+<div style={{ marginBottom: "1rem" }}>
+<label>
+ <p style={{ color: "black" }}>Nome</p>
+ <input
+   type="text"
+   value={nome}
+   onChange={(e) => setNome(e.target.value)}
+   style={{ width: "100%", padding: "0.5rem", marginTop: "0.5rem" }}
+ />
+</label>
+</div>
+<div style={{ marginBottom: "1rem" }}>
+<label>
+ <p style={{ color: "black" }}>Email</p>
+ <input
+   type="email"
+   value={email}
+   onChange={(e) => setEmail(e.target.value)}
+   style={{ width: "100%", padding: "0.5rem", marginTop: "0.5rem" }}
+ />
+</label>
+</div>
+<div style={{ marginBottom: "1rem" }}>
+<label>
+ <p style={{ color: "black" }}>CPF</p>
+ <input
+   type="text"
+   value={cpfCadastra}
+   onChange={(e) => setCpfCadastra(e.target.value)}
+   style={{ width: "100%", padding: "0.5rem", marginTop: "0.5rem" }}
+ />
+</label>
+</div>
+<div style={{ marginBottom: "1rem" }}>
+<label>
+ <p style={{ color: "black" }}>Senha</p>
+ <input
+   type="password"
+   value={senhaCadastra}
+   onChange={(e) => setSenhaCadastra(e.target.value)}
+   style={{ width: "100%", padding: "0.5rem", marginTop: "0.5rem" }}
+ />
+</label>
+</div>
+<div style={{ marginBottom: "1rem" }}>
+<label>
+ <p style={{ color: "black" }}>Data de Nascimento</p>
+ <input
+   type="date"
+   value={dataNasc}
+   onChange={(e) => setDataNasc(e.target.value)}
+   style={{ width: "100%", padding: "0.5rem", marginTop: "0.5rem" }}
+ />
+</label>
+</div>
+<div style={{ marginBottom: "1rem" }}>
+<label>
+ <p style={{ color: "black" }}>Endereço</p>
+ <input
+   type="text"
+   value={endereco}
+   onChange={(e) => setEndereco(e.target.value)}
+   style={{ width: "100%", padding: "0.5rem", marginTop: "0.5rem" }}
+ />
+</label>
+</div>
+<button
+onClick={handleAdmin}
+style={{
+ padding: "0.5rem 1rem",
+ background: "#28a745",
+ color: "white",
+ border: "none",
+ borderRadius: "5px",
+ cursor: "pointer",
+}}
+>
+Cadastrar
+</button>
+</div>
+</div>
+      )
+      }
     </div>
   );
 }

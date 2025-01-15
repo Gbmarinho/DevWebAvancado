@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getFirestore, collection, getDocs, query, where } from "firebase/firestore";
+import { getFirestore, collection, getDocs, query, where, addDoc } from "firebase/firestore";
 import app from "./firebaseConfig";
 import { useNavigate } from "react-router-dom";
 import './index.css';
@@ -21,6 +21,45 @@ function App() {
   const [loading, setLoading] = useState(true);
   const db = getFirestore(app);
   const navigate = useNavigate();
+  const [cadastraOpen, setCadastraOpen] = useState(false);
+  const [nome, setNome] = useState("");
+  const [email, setEmail] = useState("");
+  const [dataNasc, setDataNasc] = useState("");
+  const [endereco, setEndereco] = useState("");
+  const [cpfCadastra, setCpfCadastra] = useState("");
+  const [senhaCadastra, setSenhaCadastra] = useState("");
+
+  const handleAdmin = async () => {
+      try {
+        const db = getFirestore();
+  
+        // Dados do formulário
+        const adminData = {
+          cpf: cpfCadastra,
+          senha: senhaCadastra,
+          nome,
+          email,
+          data_nasc: dataNasc,
+          endereço: endereco,
+        };
+  
+        // Adiciona o novo administrador ao Firestore
+        const userDoc = await addDoc(collection(db, "Pessoa"), adminData);
+  
+        const id = userDoc.id;
+            setUserId(id);
+            localStorage.setItem("userId", id); 
+        alert("Administrador cadastrado com sucesso!");
+        handleCloseModal(); // Fecha o modal
+      } catch (error) {
+        console.error("Erro ao cadastrar administrador:", error);
+        alert("Erro ao cadastrar administrador. Tente novamente.");
+      }
+    };
+
+  const handleCloseModal = () => {
+    setCadastraOpen(false);
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -214,6 +253,22 @@ function App() {
             >
               Entrar
             </button>
+            <button
+                  type="button"
+                  style={{
+                    marginTop: "1rem",
+                    padding: "0.5rem 1rem",
+                    background: "#007b7f",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "5px",
+                    cursor: "pointer",
+                    marginLeft: "1rem",
+                  }}
+                  onClick={() => {setIsModalOpen(false);setCadastraOpen(true)}}
+                >
+                  Cadastrar
+                </button>
           </div>
         </div>
       )}
@@ -264,6 +319,130 @@ function App() {
             ))}
           </ul>
         )}
+
+{cadastraOpen && (
+<div
+style={{
+position: "fixed",
+top: "0",
+left: "0",
+width: "100%",
+height: "100%",
+background: "rgba(0, 0, 0, 0.5)",
+display: "flex",
+justifyContent: "center",
+alignItems: "center",
+}}
+>
+<div
+style={{
+background: "white",
+borderRadius: "8px",
+padding: "2rem",
+width: "400px",
+position: "relative",
+}}
+>
+<button
+onClick={handleCloseModal}
+style={{
+ position: "absolute",
+ top: "10px",
+ right: "10px",
+ background: "none",
+ border: "none",
+ fontSize: "1.5rem",
+ cursor: "pointer",
+}}
+>
+&times;
+</button>
+<div style={{ marginBottom: "1rem", textAlign: "center" }}>
+<h2 style={{ color: "black" }}>Cadastrar</h2>
+</div>
+<div style={{ marginBottom: "1rem" }}>
+<label>
+ <p style={{ color: "black" }}>Nome</p>
+ <input
+   type="text"
+   value={nome}
+   onChange={(e) => setNome(e.target.value)}
+   style={{ width: "100%", padding: "0.5rem", marginTop: "0.5rem" }}
+ />
+</label>
+</div>
+<div style={{ marginBottom: "1rem" }}>
+<label>
+ <p style={{ color: "black" }}>Email</p>
+ <input
+   type="email"
+   value={email}
+   onChange={(e) => setEmail(e.target.value)}
+   style={{ width: "100%", padding: "0.5rem", marginTop: "0.5rem" }}
+ />
+</label>
+</div>
+<div style={{ marginBottom: "1rem" }}>
+<label>
+ <p style={{ color: "black" }}>CPF</p>
+ <input
+   type="text"
+   value={cpfCadastra}
+   onChange={(e) => setCpfCadastra(e.target.value)}
+   style={{ width: "100%", padding: "0.5rem", marginTop: "0.5rem" }}
+ />
+</label>
+</div>
+<div style={{ marginBottom: "1rem" }}>
+<label>
+ <p style={{ color: "black" }}>Senha</p>
+ <input
+   type="password"
+   value={senhaCadastra}
+   onChange={(e) => setSenhaCadastra(e.target.value)}
+   style={{ width: "100%", padding: "0.5rem", marginTop: "0.5rem" }}
+ />
+</label>
+</div>
+<div style={{ marginBottom: "1rem" }}>
+<label>
+ <p style={{ color: "black" }}>Data de Nascimento</p>
+ <input
+   type="date"
+   value={dataNasc}
+   onChange={(e) => setDataNasc(e.target.value)}
+   style={{ width: "100%", padding: "0.5rem", marginTop: "0.5rem" }}
+ />
+</label>
+</div>
+<div style={{ marginBottom: "1rem" }}>
+<label>
+ <p style={{ color: "black" }}>Endereço</p>
+ <input
+   type="text"
+   value={endereco}
+   onChange={(e) => setEndereco(e.target.value)}
+   style={{ width: "100%", padding: "0.5rem", marginTop: "0.5rem" }}
+ />
+</label>
+</div>
+<button
+onClick={handleAdmin}
+style={{
+ padding: "0.5rem 1rem",
+ background: "#28a745",
+ color: "white",
+ border: "none",
+ borderRadius: "5px",
+ cursor: "pointer",
+}}
+>
+Cadastrar
+</button>
+</div>
+</div>
+      )
+      }
       </div>
     </div>
   );

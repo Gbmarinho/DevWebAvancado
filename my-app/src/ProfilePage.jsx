@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { getFirestore, doc, getDoc, collection, getDocs, addDoc, query, where } from "firebase/firestore";
+import { getFirestore, doc, getDoc, collection, getDocs, addDoc, query, where, deleteDoc } from "firebase/firestore";
 import './index.css';
 
 const ProfilePage = () => {
@@ -55,6 +55,56 @@ const ProfilePage = () => {
       console.error("Erro ao adicionar biblioteca: ", e);
     }
   };
+
+  const deleteMidia = async (id) => {
+    const db = getFirestore();
+  
+    try {
+      // Cria uma referência para o documento com o id passado
+      const midiaRef = doc(db, "Midia", id);
+  
+      // Deleta o documento
+      await deleteDoc(midiaRef);
+  
+      console.log("Mídia deletada com sucesso!");
+    } catch (error) {
+      console.error("Erro ao deletar mídia:", error);
+    }
+  };
+
+
+const fetchEmprestimos = async (idPessoa) => {
+  const db = getFirestore();
+
+  try {
+    // Cria uma consulta para buscar todos os empréstimos com id_pessoa igual ao passado
+    const emprestimosRef = collection(db, "Emprestimo");
+    const q = query(emprestimosRef, where("id_pessoa", "==", idPessoa));
+
+    // Executa a consulta
+    const querySnapshot = await getDocs(q);
+
+    // Processa os resultados e remove os campos indesejados
+    const emprestimos = querySnapshot.docs.map(doc => {
+      const data = doc.data();
+      // Remove os campos id_pessoa, id_midia e id_biblioteca
+      delete data.id_pessoa;
+      delete data.id_midia;
+      delete data.id_biblioteca;
+      return {
+        id: doc.id,
+        ...data
+      };
+    });
+
+    // Atualiza o estado com os dados filtrados
+    setData(emprestimos);
+  } catch (error) {
+    console.error("Erro ao buscar empréstimos:", error);
+    return [];
+  }
+};
+
 
   useEffect(() => {
     const fetchData = async () => {
@@ -170,6 +220,10 @@ const ProfilePage = () => {
   };
 
   const handleChangeView = (newView) => {
+    if(newView === "Emprestimo"){
+      fetchEmprestimos(userId)
+      return
+    }
     setView(newView);
   };
 
@@ -214,7 +268,7 @@ const ProfilePage = () => {
         disponivel_para_emprestimo: true,
         genero,
         idEmprestimo: null,
-        id_Biblioteca: idBiblioteca2,
+        id_Biblioteca: user.idFuncBiblioteca,
         tipo,
         titulo,
         // Se o tipo for 'Livro', adicione esses campos
@@ -292,16 +346,6 @@ const ProfilePage = () => {
               type="text"
               value={ano}
               onChange={(e) => setAno(e.target.value)}
-              style={{ width: "100%", padding: "0.5rem", marginTop: "0.5rem" }}
-            />
-          </label>
-        </div>
-        <div style={{ marginBottom: "1rem" }}>
-          <label>
-            <p style={{ color: "black" }}>Biblioteca</p>
-            <input
-              value={idBiblioteca2}
-              onChange={(e) => setIdBiblioteca2(e.target.value)}
               style={{ width: "100%", padding: "0.5rem", marginTop: "0.5rem" }}
             />
           </label>
@@ -887,6 +931,8 @@ const ProfilePage = () => {
             </>
           )
         }
+        {user?.role && (
+
               <button
                 style={{
                   padding: "0.5rem 1rem",
@@ -900,6 +946,7 @@ const ProfilePage = () => {
               >
                 Cadastrar Funcionario 
               </button>
+        )}
 
 
       </div>
@@ -911,7 +958,9 @@ const ProfilePage = () => {
       
       )}
       <div style={{ marginBottom: "2rem" }}>
-        <button
+        {!user?.role && (
+          <>
+          <button
           style={{
             marginRight: "1rem",
             padding: "0.5rem 1rem",
@@ -921,10 +970,12 @@ const ProfilePage = () => {
             borderRadius: "5px",
             cursor: "pointer",
           }}
-          onClick={() => handleChangeView("Biblioteca")}
+          onClick={() => handleChangeView("Emprestimo")}
           >
-          Todas as Bibliotecas
-        </button>
+          Ver Emprestimos
+          </button>
+          </>
+        )}
           {
             user?.role === "Funcionario" &&
           <>
@@ -941,19 +992,6 @@ const ProfilePage = () => {
             onClick={() => handleChangeView("Midia")}
           >
             Todas as Mídias
-          </button>
-          <button
-            style={{
-              padding: "0.5rem 1rem",
-              background: view === "emprestimos" ? "#007bff" : "#ccc",
-              color: "white",
-              border: "none",
-              borderRadius: "5px",
-              cursor: "pointer",
-            }}
-            onClick={() => handleChangeView("Emprestimo")}
-          >
-            Todos os Empréstimos
           </button>
           </>
           }
@@ -989,6 +1027,7 @@ const ProfilePage = () => {
           </thead>
           <tbody style={{ width: "100%", borderCollapse: "collapse" }}>
             {data.map((item) => (
+              <>
               <tr key={item.id}>
                 {Object.values(item).map((value, index) => (
                   <td
@@ -1009,6 +1048,25 @@ const ProfilePage = () => {
                   </td>
                 ))}
               </tr>
+              {
+                user?.role === "Funcionario" && (
+
+                <button
+                style={{
+                  padding: "0.5rem ",
+                  background: "red",
+                  border: "none",
+                  borderRadius: "5px",
+                  cursor: "pointer",
+                  width:"80px"
+                }}
+                onClick={() => deleteMidia(item.id)}
+              >
+                Deletar
+              </button>
+                )
+              }
+              </>
             ))}
           </tbody>
         </table>
